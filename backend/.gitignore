@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.db
+habits.db
+habits.db-journal
+.env
+*.log
