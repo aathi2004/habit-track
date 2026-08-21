@@ -5,7 +5,7 @@ import fs from 'fs';
 let sqlInstance: any = null;
 let dbInstance: SqlJsDatabase | null = null;
 
-const dbPath = process.env.NODE_ENV === 'test'
+const dbPath = (process.env.NODE_ENV === 'test' || process.env.VERCEL)
   ? ':memory:'
   : (process.env.DATABASE_PATH || path.join(__dirname, '../../habits.db'));
 
