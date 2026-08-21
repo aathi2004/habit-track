@@ -14,9 +14,19 @@ function getHeaders(): HeadersInit {
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
-  const data = await res.json();
+  const text = await res.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    if (!res.ok) {
+      throw new Error(text || `Server error (${res.status})`);
+    }
+    throw new Error('Server returned invalid response');
+  }
+
   if (!res.ok) {
-    throw new Error(data.error || data.message || 'An error occurred');
+    throw new Error(data.error || data.details || data.message || 'An error occurred');
   }
   return data as T;
 }

@@ -11,13 +11,17 @@ const dbPath = (process.env.NODE_ENV === 'test' || process.env.VERCEL)
 
 function saveToDisk() {
   if (dbPath !== ':memory:' && dbInstance) {
-    const data = dbInstance.export();
-    const buffer = Buffer.from(data);
-    const dir = path.dirname(dbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    try {
+      const data = dbInstance.export();
+      const buffer = Buffer.from(data);
+      const dir = path.dirname(dbPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(dbPath, buffer);
+    } catch (err) {
+      console.warn('Disk save skipped or failed:', err);
     }
-    fs.writeFileSync(dbPath, buffer);
   }
 }
 
@@ -64,14 +68,12 @@ export class StatementWrapper {
     if (!dbInstance) throw new Error('Database not initialized');
     const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
     
-    // Get initial changes count
     const initialChanges = dbInstance.getRowsModified();
     
     dbInstance.run(this.sql, flatParams);
     
     const newChanges = dbInstance.getRowsModified() - initialChanges;
     
-    // Get last insert rowid
     const rowIdStmt = dbInstance.prepare('SELECT last_insert_rowid() as id');
     let lastInsertRowid = 0;
     try {
@@ -103,8 +105,20 @@ export const db = {
 };
 
 export async function initDatabase() {
+  if (dbInstance) return;
+
   if (!sqlInstance) {
-    sqlInstance = await initSqlJs();
+    try {
+      const wasmPath = path.resolve(require.resolve('sql.js'), '../sql-wasm.wasm');
+      if (fs.existsSync(wasmPath)) {
+        const wasmBinary = fs.readFileSync(wasmPath);
+        sqlInstance = await initSqlJs({ wasmBinary });
+      } else {
+        sqlInstance = await initSqlJs();
+      }
+    } catch (e) {
+      sqlInstance = await initSqlJs();
+    }
   }
 
   if (dbPath !== ':memory:' && fs.existsSync(dbPath)) {
